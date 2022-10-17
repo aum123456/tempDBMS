@@ -35,3 +35,9 @@ by cname having count(*) >= 5);
 
  select distinct f.fname from faculty f where 5 > (select count(e.snum) from class
 c,enrolled e where c.name = e.cname and f.fid = c.d);
+
+
+
+
+
+NOIIICE
