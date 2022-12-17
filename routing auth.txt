@@ -1,0 +1,164 @@
+# 2 types of routing authentication:
+
+1. plain text authentication
+2. hashing auth
+
+# plain text auth --> R1 sends routing update request to R2 accompanied by a key. If R2 contains the same key, request is granted, and routing update is sanctioned.
+
+> disasdvantage: the key (aka password) is sent in plain text. Attacker can intercept the traffic before it reaches R2 to extract password.
+
+> protocols: 
+	> RIP v2
+	> OSPF v2
+	> ISIS
+	
+# hashing authentication
+
+> routing update as well as the local key is sent through a hashing algorithm to generate a hash digest
+
+> we send the hash digest across the network; it's like a fingerprint: mixture of various fields
+
+> a hash digest is generated at the reciever end and if the generated == received, then routing update is applied
+
+> hashing algos:
+
+	> MD5 (messgae digest 5)
+		> RIP v2
+		> EIGRP
+		> OSPF v2 and v3
+		> ISIS
+		> BGP
+	> SHAW (secure hash algorithm)
+		> RIPng
+		> Named EIGRP
+		> OSPF v3
+	
+# IPsec
+
+# Local keys on eachrouter need to be changed frequently.
+
+# Configure a set of keys which have a lifetimes (time based keychains)
+
+# One key should activate b4 the other key deactivates. If more than one key active, then the key with the lowest ID is considered. (keyID)
+
+# commands:
+
+router R1:
+
+configure terminal
+key chain R1KEYCHAIN
+key 1
+key-string PRIMARY_KEY
+accept-lifetime 01:00:00 April 1 2014 01 // this is when key becomes valid; and it never expires (infinite)
+exit
+key 2
+key-string SECONDARY_KEY
+accept-lifetime 01:00:00 May 1 2014 infinite
+send-lifetime 01:00:00 May 1 2014 infinite
+exit
+show key chain // to see keychain and their current validities
+
+router R2:
+
+configure terminal
+key chain R2KEYCHAIN
+key 1
+key-string PRIMARY_KEY
+accept-lifetime 01:00:00 April 1 2014 01:00:00 May 2 2014
+send-lifetime 01:00:00 April 1 2014 01:00:00 May 2 2014
+key 2
+key-string SECONDARY_KEY
+accept-lifetime 01:00:00 May 1 2014 infinite
+// show key chain
+
+<<< Setting up EIGRP authentication for ipv4 networks >>>
+
+router R1:
+
+configure terminal
+int s 1/0
+ip authentication mode eigrp 1 md5
+ip authentication key-chain eigrp 1 R1KEYCHAIN
+// neighbour is down due to authentication change
+end
+show ip eigrp neighbors // watch the spelling of neighbors
+
+router R2:
+
+cofigure terminal
+int s 1/0
+ip authentication mode eigrp 1 md5
+ip authentication key-chain eigrp 1 R2KEYCHAIN
+// new adjacency
+end
+show ip eigrp neighbors // watch the spelling of neighbors
+
+show ip route
+
+BOOKMARK: 16:40
+
+
+--------TRY (FINAL)------
+
+// Setting up a keychain (i.e., set of keys) in each router
+
+router R1:
+
+conf term
+key chain R1KEYCHAIN
+key 1
+key-string PRIMARY_KEY
+accept-lifetime 01:00:00 April 1 2014 01:00:00 May 2 2014
+send-lifetime 01:00:00 April 1 2014 01:00:00 May 2 2014
+exit
+key 2
+key-string SECONDARY_KEY
+accept-lifetime 01:00:00 May 1 2014 infinite
+send-lifetime 01:00:00 May 1 2014 infinite
+show key chain // PRIMARY_KEY is valid right now
+
+router R2:
+
+conf term
+key chain R2KEYCHAIN // only the name of the keychain differs in R2
+key 1
+key-string PRIMARY_KEY
+accept-lifetime 01:00:00 April 1 2014 01:00:00 May 2 2014
+send-lifetime 01:00:00 April 1 2014 01:00:00 May 2 2014
+exit
+key 2
+key-string SECONDARY_KEY
+accept-lifetime 01:00:00 May 1 2014 infinite
+send-lifetime 01:00:00 May 1 2014 infinite
+end
+show key chain // PRIMARY_KEY is valid right now
+
+// Now, both the routers have a keychain which have identical keys with identical validity dates and expiry dates.
+
+// EIGRP authentication for IPv4 networks
+// R1 and R2 can authenticate the EIGRP messages coming from one another
+// later, in CPT, try to connect a foreign router and see if it can route traffic without authentication
+
+router R1:
+
+show key chain // key 1 is currently valid for sending and receiving
+
+// we gonna do in interface config mode
+
+conf term
+int s 1/0 (serial port 1/0 or router R1)
+ip authentication mode eigrp 1 md5
+// neighbor, 10.1.1.2(Serial 1/0) is down: authentication mode changed
+ip authentication key-chain eigrp 1 R1KEYCHAIN
+end
+show ip eigrp neighbors // confirm that you lost your neighborship
+
+router R2:
+
+conf term
+int s 1/0
+ip authentication mode eigrp 1 md5
+ip athentication key-chain eigrp 1 R2KEYCHAIN
+// neighborship should come back up: new adjacency
+show ip eigrp neighbors
+show ip route // to see if are we learning anything about the networks connected to our neighbor
